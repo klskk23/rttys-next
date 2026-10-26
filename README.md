@@ -58,8 +58,7 @@ This repository contains only the server-side components:
    curl -fsSL -o .env https://raw.githubusercontent.com/klskk23/rttys-next/master/.env.example
    ```
 
-2. Edit `.env` and set at least `RTTYS_PASSWORD`. Set `RTTYS_TOKEN` to require a token from devices,
-   and `RTTYS_PUBLIC_HOST` to the address users reach for shares.
+2. Edit `.env` and set at least `RTTYS_PASSWORD`. All variables are listed below.
 
 3. Start the server:
 
@@ -75,12 +74,31 @@ This repository contains only the server-side components:
    rtty -h <server> -p 5912 -I my-device -a          # add -t <token> if RTTYS_TOKEN is set
    ```
 
-| Port | Purpose |
-|------|---------|
-| 5912 | Device connections |
-| 5913 | Web UI and API |
-| 5914 | Device web proxy |
-| 20000-20099 | Temporary SSH/TCP shares |
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `RTTYS_VERSION` | `latest` | Image tag |
+| `TZ` | `UTC` | Container time zone |
+| `RTTYS_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
+| `RTTYS_PASSWORD` | — | Web management password (required) |
+| `RTTYS_TOKEN` | empty | Token devices must present; empty allows any device |
+| `RTTYS_ALLOW_ORIGINS` | `false` | Allow cross-origin API requests |
+| `RTTYS_DEV_PORT` | `5912` | Host port for device connections |
+| `RTTYS_WEB_PORT` | `5913` | Host port for the web UI and API |
+| `RTTYS_HTTP_PROXY_PORT` | `5914` | Device web proxy port (same on host and container) |
+| `RTTYS_HTTP_PROXY_REDIR_URL` | empty | Redirect URL for the device web proxy |
+| `RTTYS_HTTP_PROXY_REDIR_DOMAIN` | empty | Cookie domain for the device web proxy |
+| `RTTYS_SHARE_PUBLIC_HOST` | empty | Host shown in share connection details |
+| `RTTYS_SHARE_PORT_START` | `20000` | First temporary share port |
+| `RTTYS_SHARE_PORT_END` | `20099` | Last temporary share port |
+| `RTTYS_DEV_HOOK_URL` | empty | Called when a device connects |
+| `RTTYS_USER_HOOK_URL` | empty | Called when a user accesses a device |
+| `RTTYS_CERT_DIR` | `./certs` | Host directory mounted at `/etc/rttys/certs` |
+| `RTTYS_SSL_CERT` | empty | Device TLS certificate, e.g. `/etc/rttys/certs/server.crt` |
+| `RTTYS_SSL_KEY` | empty | Device TLS private key |
+| `RTTYS_CA_CERT` | empty | CA certificate to verify devices (mTLS) |
+
+Hook URLs run inside the container; use `host.docker.internal` to reach a service on the host.
+Hook semantics are described in [deploy/rttys.conf](deploy/rttys.conf).
 
 Upgrade with `docker compose pull && docker compose up -d`.
 Images are tagged `latest`, `<version>` (e.g. `5.6.0`), `<major>.<minor>` and `sha-<commit>`.

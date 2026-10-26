@@ -17,3 +17,4 @@ assets/dist
 internal/server/assets/dist
 
 .env
+certs/
