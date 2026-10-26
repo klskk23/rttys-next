@@ -1,0 +1,26 @@
+services:
+  rttys:
+    image: ghcr.io/klskk23/rttys-next:${RTTYS_VERSION:-latest}
+    container_name: rttys
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-UTC}
+    ports:
+      - "5912:5912"               # devices (addr-dev)
+      - "5913:5913"               # web (addr-user)
+      - "5914:5914"               # device web proxy (addr-http-proxy), host and container ports must match
+      - "20000-20099:20000-20099" # temporary shares (share-port-start/end), host and container ports must match
+    volumes:
+      - type: bind
+        source: ./rttys.conf
+        target: /etc/rttys/rttys.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - rttys-data:/var/lib/rttys
+      # - ./certs:/etc/rttys/certs:ro
+    extra_hosts:
+      - host.docker.internal:host-gateway
+
+volumes:
+  rttys-data:

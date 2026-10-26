@@ -50,15 +50,17 @@ This repository contains only the server-side components:
 
 ## 🐳 Deploy with Docker Compose
 
-1. Get the compose file and environment template:
+The container starts with `rttys -c /etc/rttys/rttys.conf`, the same as the deb package and systemd service.
+
+1. Get the compose file and the container config:
 
    ```sh
    mkdir rttys && cd rttys
-   curl -fsSLO https://raw.githubusercontent.com/klskk23/rttys-next/master/compose.yaml
-   curl -fsSL -o .env https://raw.githubusercontent.com/klskk23/rttys-next/master/.env.example
+   curl -fsSLO https://raw.githubusercontent.com/klskk23/rttys-next/master/deploy/docker/compose.yaml
+   curl -fsSLO https://raw.githubusercontent.com/klskk23/rttys-next/master/deploy/docker/rttys.conf
    ```
 
-2. Edit `.env` and set at least `RTTYS_PASSWORD`. All variables are listed below.
+2. Edit `rttys.conf`: change `password`, and set any other option as in a regular install.
 
 3. Start the server:
 
@@ -71,34 +73,25 @@ This repository contains only the server-side components:
 5. Connect a device:
 
    ```sh
-   rtty -h <server> -p 5912 -I my-device -a          # add -t <token> if RTTYS_TOKEN is set
+   rtty -h <server> -p 5912 -I my-device -a          # add -t <token> if token is set
    ```
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `RTTYS_VERSION` | `latest` | Image tag |
-| `TZ` | `UTC` | Container time zone |
-| `RTTYS_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
-| `RTTYS_PASSWORD` | — | Web management password (required) |
-| `RTTYS_TOKEN` | empty | Token devices must present; empty allows any device |
-| `RTTYS_ALLOW_ORIGINS` | `false` | Allow cross-origin API requests |
-| `RTTYS_DEV_PORT` | `5912` | Host port for device connections |
-| `RTTYS_WEB_PORT` | `5913` | Host port for the web UI and API |
-| `RTTYS_HTTP_PROXY_PORT` | `5914` | Device web proxy port (same on host and container) |
-| `RTTYS_HTTP_PROXY_REDIR_URL` | empty | Redirect URL for the device web proxy |
-| `RTTYS_HTTP_PROXY_REDIR_DOMAIN` | empty | Cookie domain for the device web proxy |
-| `RTTYS_SHARE_PUBLIC_HOST` | empty | Host shown in share connection details |
-| `RTTYS_SHARE_PORT_START` | `20000` | First temporary share port |
-| `RTTYS_SHARE_PORT_END` | `20099` | Last temporary share port |
-| `RTTYS_DEV_HOOK_URL` | empty | Called when a device connects |
-| `RTTYS_USER_HOOK_URL` | empty | Called when a user accesses a device |
-| `RTTYS_CERT_DIR` | `./certs` | Host directory mounted at `/etc/rttys/certs` |
-| `RTTYS_SSL_CERT` | empty | Device TLS certificate, e.g. `/etc/rttys/certs/server.crt` |
-| `RTTYS_SSL_KEY` | empty | Device TLS private key |
-| `RTTYS_CA_CERT` | empty | CA certificate to verify devices (mTLS) |
+Both files live in [deploy/docker](deploy/docker); you can also run `docker compose up -d` from that directory of a checkout.
+`rttys.conf` there is the stock [deploy/rttys.conf](deploy/rttys.conf) with these container settings enabled.
+If you change them, update the published ports in `compose.yaml` to match:
 
-Hook URLs run inside the container; use `host.docker.internal` to reach a service on the host.
-Hook semantics are described in [deploy/rttys.conf](deploy/rttys.conf).
+| Option | Value | Published port |
+|--------|-------|----------------|
+| `addr-dev` | `:5912` | `5912` (host port may differ) |
+| `addr-user` | `:5913` | `5913` (host port may differ) |
+| `addr-http-proxy` | `:5914` | `5914` (must be the same on the host) |
+| `share-port-start` / `share-port-end` | `20000` / `20099` | `20000-20099` (must be the same on the host) |
+| `share-host-key` | `/var/lib/rttys/ssh_host_ed25519_key` | kept in the `rttys-data` volume |
+
+- Hook URLs are called from inside the container; use `host.docker.internal` to reach a service on the host.
+- For device TLS, uncomment the `./certs` volume in `compose.yaml` and point `sslcert`, `sslkey` and `cacert`
+  to `/etc/rttys/certs/...`.
+- `RTTYS_VERSION` (image tag, default `latest`) and `TZ` (default `UTC`) can be set in the shell or a `.env` file.
 
 Upgrade with `docker compose pull && docker compose up -d`.
 Images are tagged `latest`, `<version>` (e.g. `5.6.0`), `<major>.<minor>` and `sha-<commit>`.

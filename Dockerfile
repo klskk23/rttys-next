@@ -20,6 +20,8 @@ RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
 FROM alpine:3
 RUN apk add --no-cache ca-certificates tzdata
 COPY --from=rttys /rttys/rttys /usr/bin/rttys
+COPY deploy/docker/rttys.conf /etc/rttys/rttys.conf
 VOLUME /var/lib/rttys
-EXPOSE 5912 5913
+EXPOSE 5912 5913 5914
 ENTRYPOINT ["/usr/bin/rttys"]
+CMD ["-c", "/etc/rttys/rttys.conf"]

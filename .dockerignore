@@ -6,5 +6,4 @@ img
 *.tar.bz2
 *.deb
 rttys-*
-compose.yaml
 .env
