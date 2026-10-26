@@ -1,0 +1,10 @@
+.git
+.github
+**/node_modules
+internal/server/assets/dist
+img
+*.tar.bz2
+*.deb
+rttys-*
+compose.yaml
+.env

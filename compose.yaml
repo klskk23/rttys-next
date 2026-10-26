@@ -1,0 +1,23 @@
+services:
+  rttys:
+    image: ghcr.io/klskk23/rttys-next:latest
+    container_name: rttys
+    restart: unless-stopped
+    command:
+      - --password=${RTTYS_PASSWORD:?set RTTYS_PASSWORD in .env}
+      - --token=${RTTYS_TOKEN:-}
+      - --addr-http-proxy=:5914
+      - --share-public-host=${RTTYS_PUBLIC_HOST:-}
+      - --share-port-start=20000
+      - --share-port-end=20099
+      - --share-host-key=/var/lib/rttys/ssh_host_ed25519_key
+    ports:
+      - "5912:5912"               # devices
+      - "5913:5913"               # web
+      - "5914:5914"               # device web proxy
+      - "20000-20099:20000-20099" # temporary shares
+    volumes:
+      - rttys-data:/var/lib/rttys
+
+volumes:
+  rttys-data:
