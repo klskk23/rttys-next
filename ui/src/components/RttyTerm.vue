@@ -1,32 +1,69 @@
 <template>
   <div class="terminal-container">
-    <div ref="terminal" class="rtty-terminal" @contextmenu.prevent="showContextmenu"></div>
-    <el-button v-show="isConnected && !showKeyboard" @click="toggleKeyboard" type="primary" size="small" circle class="keyboard-toggle-btn">⌨</el-button>
-    <RttyKeyboard v-show="showKeyboard" @keypress="handleKeypress" @close="hideKeyboard" class="floating-keyboard"/>
-    <el-dialog v-if="!isSerial" v-model="fileCtx.modal" :title="$t('Upload file to device')" @close="onUploadDialogClosed" :width="400">
-      <el-upload :before-upload="beforeUpload" action="#">
-        <el-button type="primary">{{ $t("Select file") }}</el-button>
-      </el-upload>
-      <p v-if="fileCtx.file !== null"> {{ fileCtx.file.name }}</p>
-      <template #footer>
-        <el-button @click="fileCtx.modal = false">{{ $t('Cancel') }}</el-button>
-        <el-button type="primary" @click="doUploadFile">{{ $t('OK') }}</el-button>
-      </template>
-    </el-dialog>
-    <transition name="find-box">
-      <div v-if="showFindBox" class="find-box" @keydown="onFindBoxKeydown">
-        <el-input ref="findInput" class="find-input" v-model="findText" :placeholder="$t('Find')" clearable @keydown.enter="doFind('next')"/>
-        <el-checkbox-group class="find-flags" v-model="findFlags">
-          <el-checkbox value="caseSensitive" :label="$t('Match Case')"/>
-          <el-checkbox value="wholeWord" :label="$t('Whole Word')"/>
-          <el-checkbox value="regex" :label="$t('Regular')"/>
-        </el-checkbox-group>
-        <el-button size="small" @click="doFind('prev')">{{ $t('Prev') }}</el-button>
-        <el-button size="small" @click="doFind('next')">{{ $t('Next') }}</el-button>
-        <el-button size="small" @click="showFindBox = false">{{ $t('Close') }}</el-button>
-      </div>
-    </transition>
-    <ContextMenu v-model="contextmenuPos" :menus="contextmenus" @click="onContextmenuClick"/>
+    <v-theme-provider theme="dark" with-background class="terminal-theme">
+      <div ref="terminal" class="rtty-terminal" @contextmenu.prevent="showContextmenu"></div>
+
+      <v-fade-transition>
+        <div v-if="connecting" class="term-overlay">
+          <v-progress-circular indeterminate color="primary" size="48" width="4"/>
+          <span class="text-title-small font-mono text-medium-emphasis">{{ devid }}</span>
+        </div>
+      </v-fade-transition>
+
+      <v-slide-y-transition>
+        <div v-if="disconnected" class="term-status">
+          <v-chip :prepend-icon="icons.offline" color="error" variant="flat" size="large">{{ $t('Disconnected') }}</v-chip>
+          <v-btn :prepend-icon="icons.refresh" color="primary" variant="flat" @click="reconnect">{{ $t('Reconnect') }}</v-btn>
+        </div>
+      </v-slide-y-transition>
+
+      <v-btn v-show="isConnected && !showKeyboard" :icon="icons.keyboard" color="secondary-container" class="keyboard-toggle-btn"
+        :aria-label="$t('Virtual Keyboard')" @click="toggleKeyboard"/>
+      <RttyKeyboard v-show="showKeyboard" @keypress="handleKeypress" @close="hideKeyboard" class="floating-keyboard"/>
+
+      <v-dialog v-if="!isSerial" v-model="fileCtx.modal" max-width="420" @after-leave="onUploadDialogClosed">
+        <v-card :title="$t('Upload file')">
+          <v-card-text>
+            <v-file-input v-model="fileCtx.file" :label="$t('Select file')" :prepend-icon="null" :prepend-inner-icon="icons.upload" show-size/>
+          </v-card-text>
+          <template #actions>
+            <v-spacer/>
+            <v-btn variant="text" @click="fileCtx.modal = false">{{ $t('Cancel') }}</v-btn>
+            <v-btn variant="flat" color="primary" :disabled="!fileCtx.file" @click="doUploadFile">{{ $t('Upload') }}</v-btn>
+          </template>
+        </v-card>
+      </v-dialog>
+
+      <v-slide-y-transition>
+        <v-sheet v-if="showFindBox" class="find-box" color="surface-container-high" rounded="lg" elevation="3" @keydown="onFindBoxKeydown">
+          <v-text-field ref="findInput" v-model="findText" :placeholder="$t('Find')" density="compact" variant="solo-filled" flat
+            hide-details single-line class="find-input" bg-color="surface-container-highest" @keydown.enter.exact="doFind('next')"
+            @keydown.shift.enter="doFind('prev')"/>
+          <v-btn-toggle v-model="findFlags" multiple density="compact" variant="text" color="primary" :divided="false">
+            <v-btn value="caseSensitive" :icon="icons.matchCase" size="small" :title="$t('Match Case')"/>
+            <v-btn value="wholeWord" :icon="icons.wholeWord" size="small" :title="$t('Whole Word')"/>
+            <v-btn value="regex" :icon="icons.regex" size="small" :title="$t('Regular')"/>
+          </v-btn-toggle>
+          <v-divider vertical class="mx-1"/>
+          <v-btn :icon="icons.prev" variant="text" size="small" :title="$t('Prev')" @click="doFind('prev')"/>
+          <v-btn :icon="icons.next" variant="text" size="small" :title="$t('Next')" @click="doFind('next')"/>
+          <v-btn :icon="icons.close" variant="text" size="small" :title="$t('Close')" @click="showFindBox = false"/>
+        </v-sheet>
+      </v-slide-y-transition>
+
+      <v-menu v-model="contextmenu.visible" :target="contextmenu.target" location="bottom start" @after-leave="focusTerm">
+        <v-list min-width="240">
+          <template v-for="(group, gi) in contextmenus" :key="gi">
+            <v-divider v-if="gi > 0" class="my-1"/>
+            <v-list-item v-for="item in group" :key="item.name" :prepend-icon="item.icon" :title="item.caption" @click="onContextmenuClick(item.name)">
+              <template v-if="item.shortcut" #append>
+                <span class="text-label-small text-medium-emphasis font-mono ml-6">{{ item.shortcut }}</span>
+              </template>
+            </v-list-item>
+          </template>
+        </v-list>
+      </v-menu>
+    </v-theme-provider>
   </div>
 </template>
 
@@ -34,16 +71,16 @@
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick, useTemplateRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { ElLoading, ElMessage, ElMessageBox } from 'element-plus'
-import useClipboard from 'vue-clipboard3'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { SearchAddon } from '@xterm/addon-search'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import '@xterm/xterm/css/xterm.css'
 import OverlayAddon from '../xterm-addon/xterm-addon-overlay'
-import ContextMenu from '../components/ContextMenu.vue'
 import RttyKeyboard from '../components/RttyKeyboard.vue'
+import * as icons from '../icons'
+import { notify, copy } from '../composables/notify'
+import { terminal as terminalTheme } from '../plugins/theme'
 
 const LoginErrorOffline = 4000
 const LoginErrorBusy = 4001
@@ -67,7 +104,6 @@ const emit = defineEmits(['split', 'close'])
 const router = useRouter()
 const route = useRoute()
 const { t } = useI18n()
-const { toClipboard } = useClipboard()
 const isSerial = computed(() => props.mode === 'serial')
 const serialSettings = {
   port: route.query.port || '', baudRate: route.query.baudRate || '',
@@ -75,25 +111,38 @@ const serialSettings = {
 }
 
 const terminal = useTemplateRef('terminal')
-const contextmenuPos = ref(null)
+const contextmenu = reactive({ visible: false, target: [0, 0] })
 
 const contextmenus = [
-  {name: 'copy', caption: t('Copy'), shortcut: 'Ctrl + Insert'},
-  {name: 'paste', caption: t('Paste'), shortcut: 'Shift + Insert'},
-  {name: 'clear', caption: t('Clear Scrollback')},
-  {name: 'find', caption: t('Find'), shortcut: 'Ctrl + F'},
-  {name: 'clear-highlighting', caption: t('Clear Highlighting')},
-  {name: 'font+', caption: t('font+'), shortcut: 'Ctrl + ↑'},
-  {name: 'font-', caption: t('font-'), shortcut: 'Ctrl + ↓'},
-  {name: 'upload', caption: t('Upload file'), shortcut: 'rtty -R'},
-  {name: 'download', caption: t('Download file'), shortcut: 'rtty -S file'},
-  {name: 'split-left', caption: t('split-left')},
-  {name: 'split-right', caption: t('split-right')},
-  {name: 'split-up', caption: t('split-up')},
-  {name: 'split-down', caption: t('split-down')},
-  {name: 'close', caption: t('Close')},
-  {name: 'about', caption: t('About')}
-].filter(item => !isSerial.value || !['upload', 'download', 'split-left', 'split-right', 'split-up', 'split-down', 'close'].includes(item.name))
+  [
+    { name: 'copy', icon: icons.copy, caption: t('Copy'), shortcut: 'Ctrl+Insert' },
+    { name: 'paste', icon: icons.paste, caption: t('Paste'), shortcut: 'Shift+Insert' }
+  ],
+  [
+    { name: 'find', icon: icons.search, caption: t('Find'), shortcut: 'Ctrl+F' },
+    { name: 'clear-highlighting', icon: icons.clearHighlight, caption: t('Clear Highlighting') },
+    { name: 'clear', icon: icons.clear, caption: t('Clear Scrollback') }
+  ],
+  [
+    { name: 'font+', icon: icons.fontUp, caption: t('font+'), shortcut: 'Ctrl+↑' },
+    { name: 'font-', icon: icons.fontDown, caption: t('font-'), shortcut: 'Ctrl+↓' }
+  ],
+  [
+    { name: 'upload', icon: icons.upload, caption: t('Upload file'), shortcut: 'rtty -R' },
+    { name: 'download', icon: icons.download, caption: t('Download file'), shortcut: 'rtty -S' }
+  ],
+  [
+    { name: 'split-left', icon: icons.splitLeft, caption: t('split-left') },
+    { name: 'split-right', icon: icons.splitRight, caption: t('split-right') },
+    { name: 'split-up', icon: icons.splitUp, caption: t('split-up') },
+    { name: 'split-down', icon: icons.splitDown, caption: t('split-down') },
+    { name: 'close', icon: icons.close, caption: t('Close') }
+  ],
+  [
+    { name: 'about', icon: icons.about, caption: t('About') }
+  ]
+].map(group => group.filter(item => !isSerial.value || !['upload', 'download', 'split-left', 'split-right', 'split-up', 'split-down', 'close'].includes(item.name)))
+  .filter(group => group.length)
 
 const showFindBox = ref(false)
 const findInput = useTemplateRef('findInput')
@@ -113,7 +162,7 @@ const onFindBoxKeydown = (e) => {
 
 watch(() => showFindBox.value, (val) => {
   if (!val) {
-    nextTick(() => term.focus())
+    nextTick(() => term?.focus())
   }
 })
 
@@ -135,17 +184,19 @@ let searchAddon = null
 let unack = 0
 const showKeyboard = ref(false)
 const isConnected = ref(false)
+const connecting = ref(false)
+const disconnected = ref(false)
 
-const copyText = async(text) => {
-  try {
-    await toClipboard(text)
-    return Promise.resolve()
-  } catch (err) {
-    return Promise.reject(err)
-  }
+const focusTerm = () => {
+  if (!showFindBox.value && !fileCtx.modal)
+    term?.focus()
 }
 
-const showContextmenu = (e) => contextmenuPos.value = { x: e.clientX, y: e.clientY }
+const showContextmenu = (e) => {
+  if (!term) return
+  contextmenu.target = [e.clientX, e.clientY]
+  contextmenu.visible = true
+}
 
 const toggleKeyboard = () => showKeyboard.value = !showKeyboard.value
 
@@ -157,14 +208,13 @@ const onContextmenuClick = (name) => {
   if (name === 'copy') {
     const text = term.getSelection()
     if (text)
-      copyText(text).then(() => ElMessage.success(t('Copied to clipboard')))
+      copy(text)
   } else if (name === 'paste') {
     pasteFromClipboard()
   } else if (name === 'clear') {
     term.clear()
   } else if (name === 'find') {
     openFindBox()
-    return
   } else if (name === 'clear-highlighting') {
     searchAddon.clearDecorations()
     term.clearSelection()
@@ -173,9 +223,9 @@ const onContextmenuClick = (name) => {
   } else if (name === 'font-') {
     updateFontSize(-1)
   } else if (name === 'upload') {
-    ElMessage.success(t('Please execute command "rtty -R" in current terminal!'))
+    notify.info(t('Please execute command "rtty -R" in current terminal!'))
   } else if (name === 'download') {
-    ElMessage.success(t('Please execute command "rtty -S file" in current terminal!'))
+    notify.info(t('Please execute command "rtty -S file" in current terminal!'))
   } else if (name === 'split-left') {
     emit('split', props.panelId, 'left')
   } else if (name === 'split-right') {
@@ -189,30 +239,23 @@ const onContextmenuClick = (name) => {
   } else if (name === 'about') {
     window.open('https://github.com/zhaojh329/rtty')
   }
-
-  term.focus()
 }
 
 const pasteFromClipboard = async() => {
   try {
     if (!navigator.clipboard || !navigator.clipboard.readText) {
-      ElMessage.info(t('Please use shortcut "Shift+Insert"'))
+      notify.info(t('Please use shortcut "Shift+Insert"'))
       return
     }
 
     const text = await navigator.clipboard.readText()
-    if (text) {
+    if (text)
       sendTermData(text)
-      ElMessage.success(t('Pasted from clipboard'))
-    }
   } catch (error) {
-    if (error.name === 'NotAllowedError') {
-      ElMessageBox.alert(t('clipboard_instructions'), t('Clipboard Permission Required'), {
-        type: 'warning'
-      })
-    } else {
-      ElMessage.info(t('Please use shortcut "Shift+Insert"'))
-    }
+    if (error.name === 'NotAllowedError')
+      notify.error(t('Clipboard permission denied'))
+    else
+      notify.info(t('Please use shortcut "Shift+Insert"'))
   }
 }
 
@@ -224,12 +267,12 @@ const updateFontSize = (size) => {
 const doFind = (type) => {
   const options = {
     decorations: {
-      matchBackground: '#2e7d32',
-      matchBorder: '#2e7d32',
-      matchOverviewRuler: '#2e7d32',
-      activeMatchBackground: '#ff8f00',
-      activeMatchBorder: '#ff8f00',
-      activeMatchColorOverviewRuler: '#ff8f00'
+      matchBackground: '#004c6d',
+      matchBorder: '#93cdf6',
+      matchOverviewRuler: '#93cdf6',
+      activeMatchBackground: '#f8bd2a',
+      activeMatchBorder: '#f8bd2a',
+      activeMatchColorOverviewRuler: '#f8bd2a'
     }
   }
 
@@ -266,16 +309,11 @@ const onUploadDialogClosed = () => {
   if (fileCtx.accepted)
     return
 
-  term.focus()
+  term?.focus()
   resetFileTransfer()
 
   if (socket?.readyState === WebSocket.OPEN)
     socket.send(JSON.stringify({type: 'fileCanceled'}))
-}
-
-const beforeUpload = (file) => {
-  fileCtx.file = file
-  return false
 }
 
 const sendFileInfo = (file) => {
@@ -312,7 +350,7 @@ const doUploadFile = () => {
   term.focus()
 
   if (fileCtx.file.size > 0xffffffff) {
-    ElMessage.error(t('The file you will upload is too large(> 4294967295 Byte)'))
+    notify.error(t('The file you will upload is too large(> 4294967295 Byte)'))
     return
   }
 
@@ -361,7 +399,7 @@ const doUploadFile = () => {
     if (socket === transfer.socket && socket.readyState === WebSocket.OPEN)
       socket.send(JSON.stringify({type: 'fileCanceled'}))
 
-    ElMessage.error(error.message)
+    notify.error(error.message)
   }
 
   pumpFileUpload()
@@ -387,7 +425,7 @@ const sendFileData = (data) => {
   socket.send(frame)
 }
 
-const fitTerm = () => nextTick(() => fitAddon.fit())
+const fitTerm = () => nextTick(() => fitAddon?.fit())
 
 const closed = () => {
   if (term)
@@ -395,6 +433,7 @@ const closed = () => {
   dispose()
   isConnected.value = false
   showKeyboard.value = false
+  disconnected.value = true
 }
 
 const openTerm = () => {
@@ -403,7 +442,9 @@ const openTerm = () => {
     cursorBlink: true,
     cursorStyle: 'bar',
     cursorInactiveStyle: 'none',
-    fontSize: 16
+    fontSize: 16,
+    fontFamily: getComputedStyle(document.documentElement).getPropertyValue('--md-font-mono'),
+    theme: terminalTheme
   })
 
   term.loadAddon(new WebLinksAddon())
@@ -427,7 +468,7 @@ const openTerm = () => {
     disposables.push(term.onResize(size => {
       const msg = {type: 'winsize', cols: size.cols, rows: size.rows}
       socket.send(JSON.stringify(msg))
-      overlayAddon.show(term.cols + 'x' + term.rows)
+      overlayAddon.show(term.cols + ' × ' + term.rows)
     }))
   }
 
@@ -450,30 +491,19 @@ const openTerm = () => {
   nextTick(() => term.focus())
 
   isConnected.value = true
-
-  if (isSerial.value) return
-
-  term.writeln([
-    ' ┌─────────────────────────────────────────────────────────────┐',
-    ' │  \x1b[36;1mPowered by rtty\x1b[0m(https://github.com/zhaojh329/rtty)         │',
-    ' │                                                             │',
-    ' │ ⮞ For more operations, please right-click the mouse.        │',
-    ' └─────────────────────────────────────────────────────────────┘',
-    ''
-  ].join('\n\r'))
 }
 
-const dispose = () => disposables.forEach(d => d.dispose())
+const dispose = () => {
+  disposables.forEach(d => d.dispose())
+  disposables = []
+  window.removeEventListener('rtty-resize', fitTerm)
+  if (isSerial.value) window.removeEventListener('resize', fitTerm)
+}
 
 const connect = () => {
   unack = 0
-
-  const loading = isSerial.value ? null : ElLoading.service({
-    lock: true,
-    text: t('Requesting device to create terminal...'),
-    background: '#555',
-    customClass: 'rtty-loading'
-  })
+  connecting.value = true
+  disconnected.value = false
 
   const group = route.query.group ?? ''
   const params = isSerial.value
@@ -486,7 +516,7 @@ const connect = () => {
 
   ws.addEventListener('close', (ev) => {
     if (ws !== socket) return
-    loading?.close()
+    connecting.value = false
     resetFileTransfer()
 
     if (isSerial.value) {
@@ -499,7 +529,7 @@ const connect = () => {
         4105: 'Unable to open serial port'
       }
       if (ev.code !== 1000 && ev.code !== 1001)
-        ElMessage.error(t(messages[ev.code] || 'Connection failed'))
+        notify.error(t(messages[ev.code] || 'Connection failed'))
     } else if (ev.code === LoginErrorOffline) {
       router.push('/error/offline')
     } else if (ev.code === LoginErrorBusy) {
@@ -513,7 +543,7 @@ const connect = () => {
 
   ws.addEventListener('error', () => {
     if (ws !== socket) return
-    loading?.close()
+    connecting.value = false
 
     if (isSerial.value) return
 
@@ -530,7 +560,7 @@ const connect = () => {
     if (typeof data === 'string') {
       const msg = JSON.parse(data)
       if (msg.type === 'login') {
-        loading?.close()
+        connecting.value = false
         openTerm()
       } else if (isSerial.value) {
         return
@@ -593,13 +623,18 @@ const connect = () => {
   })
 }
 
+const reconnect = () => {
+  if (term) {
+    term.dispose()
+    term = null
+  }
+  connect()
+}
+
 onMounted(() => connect())
 
 onUnmounted(() => {
   resetFileTransfer()
-
-  window.removeEventListener('rtty-resize', fitTerm)
-  if (isSerial.value) window.removeEventListener('resize', fitTerm)
 
   dispose()
 
@@ -612,93 +647,91 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-  .terminal-container {
-    height: 100%;
-    position: relative;
-    overflow: hidden;
-  }
+.terminal-container {
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
 
-  .rtty-terminal {
-    height: 100%;
-    background-color: black;
-  }
+.terminal-theme {
+  height: 100%;
+  background: rgb(var(--v-theme-surface-container-lowest));
+}
 
-  :deep(.terminal) {
-    padding: 5px;
-  }
+.rtty-terminal {
+  height: 100%;
+}
 
-  :deep(.xterm .xterm-viewport) {
-    overflow-y: auto;
-  }
+:deep(.terminal) {
+  padding: 8px;
+}
 
-  .floating-keyboard {
-    position: absolute;
-    bottom: 80px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 999;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-    border-radius: 12px;
-    background: rgba(248, 249, 250, 0.95);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    cursor: move;
-    width: clamp(400px, 85vw, 700px);
-  }
+:deep(.xterm .xterm-viewport) {
+  overflow-y: auto;
+}
 
-  .keyboard-toggle-btn {
-    position: absolute;
-    bottom: 20px;
-    right: 20px;
-    z-index: 1000;
-    opacity: 0.8;
-    transition: opacity 0.3s ease;
-  }
+.term-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background: rgb(var(--v-theme-surface-container-lowest));
+  z-index: 5;
+}
 
-  .keyboard-toggle-btn:hover {
-    opacity: 1;
-  }
+.term-status {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 6;
+}
 
-  .find-box {
-    width: auto;
-    position: absolute;
-    top: 5px;
-    right: 15px;
-    z-index: 1001;
-    background: rgba(255,255,255,0.98);
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-    padding: 4px 4px;
-    display: flex;
-    align-items: center;
-    gap: 5px;
-  }
+.floating-keyboard {
+  position: absolute;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 999;
+  width: clamp(360px, 85vw, 720px);
+}
 
-  .find-box-enter-active,
-  .find-box-leave-active {
-    transition: all 0.3s cubic-bezier(.55,0,.1,1);
-  }
-  .find-box-enter-from,
-  .find-box-leave-to {
-    opacity: 0;
-    transform: translateY(-40px);
-  }
-  .find-box-enter-to,
-  .find-box-leave-from {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.keyboard-toggle-btn {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  z-index: 1000;
+  border-radius: 16px !important;
+  opacity: 0.85;
+  transition: opacity 200ms var(--md-motion-emphasized);
+}
 
-  .find-input {
-    width: 200px;
-  }
+.keyboard-toggle-btn:hover {
+  opacity: 1;
+}
 
-  .find-flags {
-    display: flex;
-    gap: 5px
-  }
+.find-box {
+  position: absolute;
+  top: 8px;
+  right: 16px;
+  z-index: 1001;
+  padding: 4px 4px 4px 8px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
 
-  :deep(.el-checkbox) {
-    margin-right: 1px;
-  }
+.find-input {
+  width: 220px;
+}
+
+.find-input :deep(.v-field) {
+  border-radius: 8px;
+}
 </style>

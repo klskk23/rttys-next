@@ -1,18 +1,20 @@
 <template>
-  <RttyTerm v-if="mode === 'serial'" :devid="devid" mode="serial" class="splitter-root"/>
-  <template v-else>
-    <RttySplitter :devid="devid" :config="rootConfig" @split="handleSplitPanel" @close="handleClosePanel" @resize="handleResize" class="splitter-root"/>
-    <div id="terminal-pool">
-      <RttyTerm v-for="id in terms" :key="id" :data-terminal-id="id" :devid="devid" :panel-id="id" @split="handleSplitPanel" @close="handleClosePanel"/>
-    </div>
-  </template>
+  <v-theme-provider theme="dark" with-background>
+    <RttyTerm v-if="mode === 'serial'" :devid="devid" mode="serial" class="splitter-root"/>
+    <template v-else>
+      <RttySplitter :devid="devid" :config="rootConfig" @split="handleSplitPanel" @close="handleClosePanel" @resize="handleResize" class="splitter-root"/>
+      <div id="terminal-pool">
+        <RttyTerm v-for="id in terms" :key="id" :data-terminal-id="id" :devid="devid" :panel-id="id" @split="handleSplitPanel" @close="handleClosePanel"/>
+      </div>
+    </template>
+  </v-theme-provider>
 </template>
 
 <script setup>
 import RttySplitter from '../components/RttySplitter.vue'
 import RttyTerm from '../components/RttyTerm.vue'
 import { ref, computed, onMounted, nextTick } from 'vue'
-import { ElMessage } from 'element-plus'
+import { notify } from '../composables/notify'
 import { useI18n } from 'vue-i18n'
 
 const props = defineProps({
@@ -98,7 +100,7 @@ const deletePanel = (config, panelId, index, parent) => {
 
 const handleSplitPanel = (panelId, direction) => {
   if (terms.value.length > 5) {
-    ElMessage.warning(t('windows-limit', { n: 6 }))
+    notify.info(t('windows-limit', { n: 6 }))
     return
   }
 
@@ -143,5 +145,6 @@ const splitPanel = (config, panelId, index, position, parent) => {
 <style scoped>
 .splitter-root {
   height: 100vh;
+  height: 100dvh;
 }
 </style>

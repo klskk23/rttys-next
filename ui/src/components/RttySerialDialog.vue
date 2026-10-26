@@ -1,36 +1,46 @@
 <template>
-  <el-dialog v-model="model" :title="$t('Open serial port')" width="320">
-    <el-form @submit.prevent="openSerialPort" label-width="auto">
-      <RttySerialSettings ref="serialSettings" :dev="dev" :group="group" :active="model"/>
-    </el-form>
-    <template #footer>
-      <el-button @click="model = false">{{ $t('Cancel') }}</el-button>
-      <el-button type="primary" :disabled="!serialSettings?.ready" @click="openSerialPort">{{ $t('Open') }}</el-button>
-    </template>
-  </el-dialog>
+  <v-dialog v-model="visible" max-width="440">
+    <v-card :title="$t('Serial port')" :subtitle="dev?.id">
+      <v-card-text>
+        <v-form @submit.prevent="openSerialPort">
+          <RttySerialSettings ref="serialSettings" :dev="dev" :active="visible"/>
+        </v-form>
+      </v-card-text>
+      <template #actions>
+        <v-spacer/>
+        <v-btn variant="text" @click="visible = false">{{ $t('Cancel') }}</v-btn>
+        <v-btn variant="flat" color="primary" :disabled="!serialSettings?.ready" @click="openSerialPort">{{ $t('Open') }}</v-btn>
+      </template>
+    </v-card>
+  </v-dialog>
 </template>
 
 <script setup>
-import { useTemplateRef } from 'vue'
+import { ref, useTemplateRef } from 'vue'
 import RttySerialSettings from './RttySerialSettings.vue'
 
-const props = defineProps({ dev: Object, group: String })
-const model = defineModel()
+const visible = ref(false)
+const dev = ref(null)
 const serialSettings = useTemplateRef('serialSettings')
 
+const open = (device) => {
+  dev.value = device
+  visible.value = true
+}
+
 const openSerialPort = () => {
-  if (!props.dev) return
+  if (!dev.value || !serialSettings.value?.ready) return
 
   const settings = serialSettings.value.getSettings()
 
-  model.value = false
+  visible.value = false
 
-  setTimeout(() => {
-    const params = new URLSearchParams({
-      group: props.group || '', port: settings.port, baudRate: String(settings.baudRate),
-      dataBits: String(settings.dataBits), stopBits: String(settings.stopBits), parity: settings.parity
-    })
-    window.open(`/serial/${props.dev.id}?${params}`, '_blank')
-  }, 100)
+  const params = new URLSearchParams({
+    group: dev.value.group || '', port: settings.port, baudRate: String(settings.baudRate),
+    dataBits: String(settings.dataBits), stopBits: String(settings.stopBits), parity: settings.parity
+  })
+  window.open(`/serial/${dev.value.id}?${params}`, '_blank')
 }
+
+defineExpose({ open })
 </script>

@@ -1,208 +1,161 @@
 <template>
-  <el-dialog v-model="cmdModal" :title="$t('Execute command')" width="500">
-    <el-form ref="cmdForm" :model="cmdData" :rules="cmdRuleValidate" :label-width="100" label-position="left">
-      <el-form-item :label="$t('Username')" prop="username">
-        <el-input v-model="cmdData.username"/>
-      </el-form-item>
-      <el-form-item :label="$t('Command')" prop="cmd">
-        <el-input v-model.trim="cmdData.cmd"/>
-      </el-form-item>
-      <el-form-item :label="$t('Parameter')" prop="params">
-        <el-tag v-for="tag in cmdData.params" :key="tag" closable @close="delCmdParam(tag)">{{ tag }}</el-tag>
-        <el-input v-if="inputParamVisible" style="width: 90px; margin-left: 10px;" v-model="inputParamValue"
-              ref="inputParam" size="small" @keyup.enter="handleInputParamConfirm" @blur="handleInputParamConfirm"/>
-        <el-button v-else style="width: 40px; margin-left: 10px;" size="small" icon="plus" type="primary" @click="showInputParam"/>
-      </el-form-item>
-      <el-form-item :label="$t('Wait Time')" prop="wait">
-        <el-input v-model.number="cmdData.wait" placeholder="30">
-          <template #append>s</template>
-        </el-input>
-      </el-form-item>
-    </el-form>
-    <template #footer>
-      <el-button @click="cmdModal = false">{{ $t('Cancel') }}</el-button>
-      <el-button type="primary" @click="doCmd">{{ $t('OK') }}</el-button>
-    </template>
-  </el-dialog>
-  <el-dialog v-model="cmdStatus.modal" :title="$t('Status of executive command')" :width="800"
-    :show-close="false" :close-on-press-escape="false" :close-on-click-modal="false">
-    <el-progress text-inside :stroke-width="20" :percentage="cmdStatusPercent"/>
-    <p>{{ $t('cmd-status-total', {count: cmdStatus.total}) }}</p>
-    <p>{{ $t('cmd-status-fail', {count: cmdStatus.fail}) }}</p>
-    <template #footer>
-      <el-button type="primary" :disabled="cmdStatus.execing > 0" @click="showCmdResp">{{ $t('OK') }}</el-button>
-      <el-button type="danger" :disabled="cmdStatus.execing === 0" @click="ignoreCmdResp">{{ $t('Ignore') }}</el-button>
-    </template>
-  </el-dialog>
-  <el-dialog v-model="cmdStatus.respModal" :title="$t('Response of executive command')" :width="800">
-    <el-table :data="cmdStatus.responses" :empty-text="$t('No Response')">
-      <el-table-column type="expand" width="50">
-        <template #default="{ row }">
-          <p>{{ $t('Stdout') + ':' }}</p>
-          <el-input type="textarea" :value="row.stdout" readonly :autosize="{minRows: 1, maxRows: 20}"/>
-          <p style="margin-top: 10px">{{ $t('Stderr') + ':' }}</p>
-          <el-input type="textarea" :value="row.stderr" readonly :autosize="{minRows: 1, maxRows: 20}"/>
-        </template>
-      </el-table-column>
-      <el-table-column type="index" label="#" width="100" />
-      <el-table-column prop="id" :label="$t('Device ID')" width="200" />
-      <el-table-column prop="code" :label="$t('Status Code')" width="70" />
-      <el-table-column prop="err" :label="$t('Error Code')" width="70" />
-      <el-table-column prop="msg" :label="$t('Error Message')" width="200" />
-    </el-table>
-  </el-dialog>
+  <v-dialog v-model="formVisible" max-width="480">
+    <v-card :title="$t('Execute command')">
+      <template #append>
+        <v-chip :prepend-icon="icons.devices" variant="tonal" color="primary">{{ targets.length }}</v-chip>
+      </template>
+      <v-card-text>
+        <v-form ref="form" @submit.prevent="run">
+          <v-text-field v-model="data.username" :label="$t('Username')" :prepend-inner-icon="icons.user" :rules="[required]" autofocus/>
+          <v-text-field v-model.trim="data.cmd" :label="$t('Command')" :prepend-inner-icon="icons.command" class="mono-input" :rules="[required]"/>
+          <v-combobox v-model="data.params" :label="$t('Parameter')" multiple chips closable-chips hide-no-data :delimiters="[' ']"/>
+          <v-number-input v-model="data.wait" :label="$t('Wait Time')" suffix="s" :min="0" :max="30" :rules="[waitRule]"/>
+          <button type="submit" hidden/>
+        </v-form>
+      </v-card-text>
+      <template #actions>
+        <v-spacer/>
+        <v-btn variant="text" @click="formVisible = false">{{ $t('Cancel') }}</v-btn>
+        <v-btn variant="flat" color="primary" @click="run">{{ $t('Run') }}</v-btn>
+      </template>
+    </v-card>
+  </v-dialog>
+
+  <v-dialog v-model="resultVisible" max-width="800">
+    <v-card :title="data.cmd" class="result-card">
+      <template #subtitle>
+        <span class="font-mono">{{ data.params.join(' ') }}</span>
+      </template>
+      <template #append>
+        <div class="d-flex ga-2">
+          <v-chip :prepend-icon="icons.success" color="success" variant="tonal">{{ succeeded }}</v-chip>
+          <v-chip :prepend-icon="icons.failure" color="error" variant="tonal">{{ failed }}</v-chip>
+        </div>
+      </template>
+      <v-progress-linear :model-value="progress" :indeterminate="pending > 0 && responses.length === 0" color="primary" class="mx-6 mb-2" style="width: auto"/>
+      <v-card-text>
+        <v-expansion-panels variant="accordion" multiple flat>
+          <v-expansion-panel v-for="r in responses" :key="r.id" bg-color="surface-container"
+            :readonly="!r.stdout && !r.stderr" :hide-actions="!r.stdout && !r.stderr">
+            <v-expansion-panel-title>
+              <v-icon :icon="r.ok ? icons.success : icons.failure" :color="r.ok ? 'success' : 'error'" size="20" class="mr-3"/>
+              <span class="font-mono text-body-medium flex-grow-1 text-truncate">{{ r.id }}</span>
+              <span v-if="r.msg" class="text-body-small text-error mr-3">{{ r.msg }}</span>
+              <v-chip v-else size="small" variant="outlined" class="font-mono mr-3">{{ r.code }}</v-chip>
+            </v-expansion-panel-title>
+            <v-expansion-panel-text>
+              <pre v-if="r.stdout" class="output">{{ r.stdout }}</pre>
+              <pre v-if="r.stderr" class="output stderr">{{ r.stderr }}</pre>
+            </v-expansion-panel-text>
+          </v-expansion-panel>
+        </v-expansion-panels>
+      </v-card-text>
+      <template #actions>
+        <v-spacer/>
+        <v-btn variant="text" @click="resultVisible = false">{{ $t('Close') }}</v-btn>
+      </template>
+    </v-card>
+  </v-dialog>
 </template>
 
 <script setup>
-import { ref, reactive, computed, nextTick, useTemplateRef } from 'vue'
+import { ref, reactive, computed, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { ElMessage } from 'element-plus'
 import axios from 'axios'
+import * as icons from '../icons'
 
 const { t } = useI18n()
 
-const props = defineProps({
-  selection: Array
-})
+const form = useTemplateRef('form')
 
-const cmdForm = useTemplateRef('cmdForm')
-const inputParam = useTemplateRef('inputParam')
+const formVisible = ref(false)
+const resultVisible = ref(false)
+const targets = ref([])
+const responses = ref([])
+const pending = ref(0)
 
-const cmdModal = ref(false)
-const inputParamVisible = ref(false)
-const inputParamValue = ref('')
-
-const cmdStatus = reactive({
-  total: 0,
-  modal: false,
-  execing: 0,
-  fail: 0,
-  respModal: false,
-  responses: []
-})
-
-const cmdData = reactive({
+const data = reactive({
   username: '',
   cmd: '',
   params: [],
-  currentParam: '',
   wait: 30
 })
 
-const cmdRuleValidate = {
-  username: [{required: true, message: t('username is required')}],
-  cmd: [{required: true, message: t('command is required')}],
-  wait: [{validator: (rule, value, callback) => {
-    if (!value) {
-      callback()
-      return
-    }
+const required = v => !!v || t('Required')
+const waitRule = v => (v === null || (Number.isInteger(v) && v >= 0 && v <= 30)) || t('must be an integer between 0 and 30')
 
-    if (!Number.isInteger(value) || value < 0 || value > 30) {
-      callback(new Error(t('must be an integer between 0 and 30')))
-    }
+const total = computed(() => responses.value.length + pending.value)
+const succeeded = computed(() => responses.value.filter(r => r.ok).length)
+const failed = computed(() => responses.value.length - succeeded.value)
+const progress = computed(() => total.value ? responses.value.length / total.value * 100 : 0)
 
-    callback()
-  }}]
+const decode = (b64) => {
+  if (!b64) return ''
+  const bytes = Uint8Array.from(window.atob(b64), c => c.charCodeAt(0))
+  return new TextDecoder().decode(bytes)
 }
 
-const cmdStatusPercent = computed(() => {
-  if (cmdStatus.total === 0)
-    return 0
-  return (cmdStatus.total - cmdStatus.execing) / cmdStatus.total * 100
-})
-
-const showCmdForm = () => {
-  if (props.selection.length < 1) {
-    ElMessage.error(t('Please select the devices you want to operate'))
-    return
-  }
-  cmdModal.value = true
+const open = (devices) => {
+  targets.value = devices
+  formVisible.value = true
 }
 
-const delCmdParam = (tag) => cmdData.params.splice(cmdData.params.indexOf(tag), 1)
+const run = async() => {
+  const { valid } = await form.value.validate()
+  if (!valid) return
 
-const showInputParam = () => {
-  inputParamVisible.value = true
-  nextTick(() => inputParam.value.focus())
-}
+  const wait = data.wait ?? 30
+  const body = { username: data.username, cmd: data.cmd, params: [...data.params] }
 
-const handleInputParamConfirm = () => {
-  const value = inputParamValue.value
-  if (value) {
-    cmdData.params.push(value)
-  }
-  inputParamVisible.value = false
-  inputParamValue.value = ''
-}
+  formVisible.value = false
+  resultVisible.value = true
+  responses.value = []
+  pending.value = targets.value.length
 
-const doCmd = () => {
-  cmdForm.value.validate(valid => {
-    if (valid) {
-      const selection = props.selection.filter(item => item.proto > 4)
+  targets.value.forEach(dev => {
+    axios.post(`/api/cmd/${dev.id}`, body, { params: { group: dev.group, wait } }).then(res => {
+      if (wait === 0) {
+        responses.value.push({ id: dev.id, ok: true, code: 0 })
+        return
+      }
 
-      cmdModal.value = false
-      cmdStatus.modal = true
-      cmdStatus.total = selection.length
-      cmdStatus.execing = selection.length
-      cmdStatus.fail = 0
-      cmdStatus.responses = []
-
-      selection.forEach(item => {
-        const data = {
-          username: cmdData.username,
-          cmd: cmdData.cmd,
-          params: cmdData.params
-        }
-
-        axios.post(`/api/cmd/${item.id}?group=${item.group}&wait=${cmdData.wait}`, data).then((response) => {
-          if (cmdData.wait === 0) {
-            cmdStatus.responses.push({
-              err: 0,
-              msg: '',
-              id: item.id,
-              code: 0,
-              stdout: '',
-              stderr: ''
-            })
-          } else {
-            const resp = response.data
-
-            if (resp.err && resp.err !== 0) {
-              cmdStatus.fail++
-              resp.stdout = ''
-              resp.stderr = ''
-            } else {
-              resp.stdout = window.atob(resp.stdout || '')
-              resp.stderr = window.atob(resp.stderr || '')
-            }
-
-            resp.id = item.id
-            cmdStatus.responses.push(resp)
-          }
-          cmdStatus.execing--
-        })
+      const resp = res.data
+      const ok = !resp.err
+      responses.value.push({
+        id: dev.id,
+        ok,
+        code: resp.code,
+        msg: ok ? '' : resp.msg,
+        stdout: ok ? decode(resp.stdout) : '',
+        stderr: ok ? decode(resp.stderr) : ''
       })
-    }
+    }).catch(err => {
+      responses.value.push({ id: dev.id, ok: false, msg: err.response?.data?.msg || err.message })
+    }).finally(() => {
+      pending.value--
+    })
   })
 }
 
-const resetCmdData = () => cmdForm.value.resetFields()
-
-const ignoreCmdResp = () => {
-  cmdStatus.execing = 0
-  cmdStatus.respModal = true
-  cmdStatus.modal = false
-}
-
-const showCmdResp = () => {
-  cmdStatus.modal = false
-  if (cmdStatus.responses.length > 0)
-    cmdStatus.respModal = true
-}
-
-defineExpose({
-  showCmdForm,
-  resetCmdData
-})
+defineExpose({ open })
 </script>
+
+<style scoped>
+.output {
+  font-family: var(--md-font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 320px;
+  overflow: auto;
+  margin: 0 0 8px;
+  padding: 12px;
+  border-radius: 8px;
+  background: rgb(var(--v-theme-surface-container-lowest));
+}
+
+.output.stderr {
+  color: rgb(var(--v-theme-error));
+}
+</style>

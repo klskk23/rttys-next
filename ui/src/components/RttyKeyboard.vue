@@ -3,9 +3,9 @@
     @mousedown="startDrag" @mousemove="onDrag" @mouseup="stopDrag" @mouseleave="stopDrag"
     @touchstart="startDrag" @touchmove="onDrag" @touchend="stopDrag">
     <div class="drag-handle">
-      <span class="drag-icon">⋮⋮</span>
-      <span class="keyboard-title">{{ $t('Virtual Keyboard') }}</span>
-      <button class="close-btn" @click="closeKeyboard" @mousedown.stop @touchstart.stop>✕</button>
+      <span class="handle-bar"></span>
+      <v-btn :icon="icons.close" variant="text" size="small" density="comfortable" class="close-btn"
+        :aria-label="$t('Close')" @click="closeKeyboard" @mousedown.stop @touchstart.stop/>
     </div>
     <div ref="simple-keyboard" class="simple-keyboard"></div>
   </div>
@@ -15,6 +15,7 @@
 import { ref, reactive, onMounted, onUnmounted, useTemplateRef } from 'vue'
 import Keyboard from 'simple-keyboard'
 import 'simple-keyboard/build/css/index.css'
+import * as icons from '../icons'
 
 const emit = defineEmits(['keypress', 'close'])
 
@@ -69,19 +70,15 @@ const initKeyboard = () => {
     },
     buttonTheme: [
       {
-        class: 'hg-red',
-        buttons: '{backspace} {enter} {shift} {tab} {capslock}'
-      },
-      {
-        class: 'hg-blue',
-        buttons: '{ctrl} {alt}'
+        class: 'hg-function',
+        buttons: '{escape} {backspace} {enter} {shift} {tab} {capslock} {ctrl} {alt}'
       }
     ],
     mergeDisplay: true,
     syncInstanceInputs: true,
     physicalKeyboardHighlight: true,
-    physicalKeyboardHighlightTextColor: 'white',
-    physicalKeyboardHighlightBgColor: '#9ab4d0'
+    physicalKeyboardHighlightTextColor: 'rgb(var(--v-theme-on-primary))',
+    physicalKeyboardHighlightBgColor: 'rgb(var(--v-theme-primary))'
   })
 }
 
@@ -303,189 +300,82 @@ onUnmounted(() => destroyKeyboard())
 </script>
 
 <style scoped>
-  .keyboard-area {
-    background-color: rgba(248, 249, 250, 0.95);
-    border-radius: 12px;
-    padding: 0;
-    width: 100%;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    overflow: hidden;
-  }
+.keyboard-area {
+  background: rgb(var(--v-theme-surface-container-high));
+  color: rgb(var(--v-theme-on-surface));
+  border-radius: 16px;
+  width: 100%;
+  box-shadow: 0 4px 8px 3px rgba(0, 0, 0, 0.15), 0 1px 3px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  padding: 0 8px 8px;
+}
 
-  .drag-handle {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    padding: 8px 16px;
-    cursor: move;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 12px;
-    font-weight: 600;
-    user-select: none;
-  }
+.drag-handle {
+  position: relative;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: move;
+  user-select: none;
+  touch-action: none;
+}
 
-  .drag-icon {
-    font-size: 14px;
-    opacity: 0.8;
-  }
+.handle-bar {
+  width: 32px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgb(var(--v-theme-on-surface-variant));
+  opacity: 0.4;
+}
 
-  .keyboard-title {
-    flex: 1;
-    text-align: center;
-  }
+.close-btn {
+  position: absolute;
+  right: 0;
+  top: 0;
+}
 
-  .close-btn {
-    background: rgba(255, 255, 255, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    border-radius: 4px;
-    color: white;
-    width: 24px;
-    height: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    font-size: 12px;
-    font-weight: bold;
-    transition: all 0.2s ease;
-    padding: 0;
-  }
+.simple-keyboard {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+  width: 100%;
+  font-family: Roboto, sans-serif;
+}
 
-  .close-btn:hover {
-    background: rgba(255, 255, 255, 0.3);
-    transform: scale(1.1);
-  }
+:deep(.simple-keyboard .hg-button) {
+  background: rgb(var(--v-theme-surface-container-highest));
+  color: rgb(var(--v-theme-on-surface));
+  border: none;
+  border-bottom: none;
+  box-shadow: none;
+  border-radius: 8px;
+  font-weight: 500;
+  font-size: clamp(0.875rem, 2.2vw, 1.25rem);
+  min-height: clamp(32px, 4vw, 44px);
+  transition: background-color 100ms var(--md-motion-emphasized);
+}
 
-  .close-btn:active {
-    transform: scale(0.95);
-  }
+:deep(.simple-keyboard .hg-button:hover) {
+  background: rgba(var(--v-theme-on-surface), 0.12);
+}
 
-  .simple-keyboard {
-    margin: 0;
-    background-color: transparent;
-    border-radius: 0;
-    box-shadow: none;
-    width: 100%;
-  }
+:deep(.simple-keyboard .hg-button:active) {
+  background: rgba(var(--v-theme-on-surface), 0.16);
+}
 
-  :deep(.simple-keyboard .hg-button) {
-    background: #ffffff;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    color: #333;
-    font-weight: 500;
-    font-size: clamp(1rem, 2.5vw, 1.5rem);
-    min-height: clamp(25px, 3vw, 32px);
-    transition: all 0.1s ease;
-  }
+:deep(.simple-keyboard .hg-function) {
+  background: rgb(var(--v-theme-secondary-container));
+  color: rgb(var(--v-theme-on-secondary-container));
+}
 
-  :deep(.simple-keyboard .hg-button:hover) {
-    background: #e9ecef;
-    border-color: #adb5bd;
-  }
-
-  :deep(.simple-keyboard .hg-button:active) {
-    background: #dee2e6;
-    transform: scale(0.98);
-  }
-
-  :deep(.simple-keyboard .hg-red) {
-    background: #dc3545;
-    color: white;
-    border-color: #dc3545;
-  }
-
-  :deep(.simple-keyboard .hg-red:hover) {
-    background: #c82333;
-    border-color: #bd2130;
-  }
-
-  :deep(.simple-keyboard .hg-blue) {
-    background: #007bff;
-    color: white;
-    border-color: #007bff;
-  }
-
-  :deep(.simple-keyboard .hg-blue:hover) {
-    background: #0056b3;
-    border-color: #004085;
-  }
-
-  :deep(.simple-keyboard .hg-activeButton) {
-    background: #28a745 !important;
-    color: white !important;
-    border-color: #28a745 !important;
-    box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.25);
-  }
-
-  :deep(.simple-keyboard .hg-shiftActive) {
-    background: #fd7e14 !important;
-    color: white !important;
-    border-color: #fd7e14 !important;
-    box-shadow: 0 0 0 2px rgba(253, 126, 20, 0.25);
-    animation: shiftPulse 1.5s infinite;
-  }
-
-  :deep(.simple-keyboard .hg-capslockActive) {
-    background: #6f42c1 !important;
-    color: white !important;
-    border-color: #6f42c1 !important;
-    box-shadow: 0 0 0 2px rgba(111, 66, 193, 0.25);
-    animation: capslockPulse 2s infinite;
-  }
-
-  :deep(.simple-keyboard .hg-ctrlActive) {
-    background: #28a745 !important;
-    color: white !important;
-    border-color: #28a745 !important;
-    box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.25);
-    animation: ctrlPulse 1s infinite;
-  }
-
-  :deep(.simple-keyboard .hg-altActive) {
-    background: #17a2b8 !important;
-    color: white !important;
-    border-color: #17a2b8 !important;
-    box-shadow: 0 0 0 2px rgba(23, 162, 184, 0.25);
-    animation: altPulse 1.2s infinite;
-  }
-
-  @keyframes shiftPulse {
-    0%, 100% {
-      box-shadow: 0 0 0 2px rgba(253, 126, 20, 0.25);
-    }
-    50% {
-      box-shadow: 0 0 0 4px rgba(253, 126, 20, 0.4);
-    }
-  }
-
-  @keyframes capslockPulse {
-    0%, 100% {
-      box-shadow: 0 0 0 2px rgba(111, 66, 193, 0.25);
-    }
-    50% {
-      box-shadow: 0 0 0 4px rgba(111, 66, 193, 0.4);
-    }
-  }
-
-  @keyframes ctrlPulse {
-    0%, 100% {
-      box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.25);
-    }
-    50% {
-      box-shadow: 0 0 0 4px rgba(40, 167, 69, 0.4);
-    }
-  }
-
-  @keyframes altPulse {
-    0%, 100% {
-      box-shadow: 0 0 0 2px rgba(23, 162, 184, 0.25);
-    }
-    50% {
-      box-shadow: 0 0 0 4px rgba(23, 162, 184, 0.4);
-    }
-  }
+:deep(.simple-keyboard .hg-shiftActive),
+:deep(.simple-keyboard .hg-capslockActive),
+:deep(.simple-keyboard .hg-ctrlActive),
+:deep(.simple-keyboard .hg-altActive) {
+  background: rgb(var(--v-theme-primary)) !important;
+  color: rgb(var(--v-theme-on-primary)) !important;
+}
 </style>

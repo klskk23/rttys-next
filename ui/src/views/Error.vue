@@ -1,97 +1,51 @@
 <template>
-  <div class="error-container">
-    <el-icon :size="90" color="#f56565"><WarningIcon/></el-icon>
-    <div class="error-content">
-      <h2 class="error-title">{{ title }}</h2>
-      <p class="error-message">{{ message }}</p>
+  <v-main class="bg-surface">
+    <div class="error-page">
+      <v-avatar color="error-container" size="96">
+        <v-icon :icon="info.icon" size="48"/>
+      </v-avatar>
+      <h1 class="text-headline-small">{{ info.title }}</h1>
+      <div class="d-flex ga-2">
+        <v-btn variant="text" :prepend-icon="icons.devices" :to="{ name: 'Devices' }">{{ $t('Devices') }}</v-btn>
+        <v-btn variant="flat" color="primary" :prepend-icon="icons.refresh" @click="router.back()">{{ $t('Retry') }}</v-btn>
+      </div>
     </div>
-  </div>
+  </v-main>
 </template>
 
 <script setup>
-import { Warning as WarningIcon } from '@vicons/ionicons5'
 import { computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import * as icons from '../icons'
 
 const { t } = useI18n()
+const router = useRouter()
 
 const props = defineProps({
   err: String
 })
 
-const title = computed(() => {
-  const err = props.err
-  if (err === 'offline')
-    return t('Device Unavailable')
-  else if (err === 'full')
-    return t('Terminal Session Limit Reached')
-  else if (err === 'timeout')
-    return t('Device Response Timeout')
-  return ''
-})
-
-const message = computed(() => {
-  const err = props.err
-  if (err === 'offline')
-    return t('The device is currently offline. Please check the device status and try again.')
-  else if (err === 'full')
-    return t('The maximum number of concurrent terminal sessions has been reached. Please try again later.')
-  else if (err === 'timeout')
-    return t('The device did not respond to the terminal session request within the expected time. Please check the device status and try again.')
-  return ''
-})
+const info = computed(() => ({
+  offline: { icon: icons.offline, title: t('Device Unavailable') },
+  full: { icon: icons.full, title: t('Terminal Session Limit Reached') },
+  timeout: { icon: icons.timeout, title: t('Device Response Timeout') }
+})[props.err] || { icon: icons.alert, title: t('Connection failed') })
 </script>
 
 <style scoped>
-.error-container {
+.error-page {
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 60vh;
+  gap: 24px;
+  padding: 16px;
   text-align: center;
 }
 
-.error-content {
-  max-width: 600px;
-  animation: slideUp 0.8s ease-out 0.2s both;
-}
-
-.error-title {
-  font-size: 1.8rem;
-  font-weight: 600;
-  color: #7a8fb0;
-  margin-bottom: 1rem;
-  line-height: 1.2;
-}
-
-.error-message {
-  font-size: 1rem;
-  color: #b6c1d3;
-  margin-bottom: 2rem;
-  line-height: 1.6;
-  text-align: left;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: scale(0.8);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.error-page h1 {
+  margin: 0;
 }
 </style>

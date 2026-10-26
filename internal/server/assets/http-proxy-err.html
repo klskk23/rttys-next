@@ -3,141 +3,89 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
     <title>RTTY</title>
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background-color: #555;
-            line-height: 1.6;
+        :root {
+            --surface: #f6fafe;
+            --on-surface: #181c20;
+            --error-container: #ffdad6;
+            --on-error-container: #93000a;
         }
 
-        .error-container {
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --surface: #101417;
+                --on-surface: #dfe3e7;
+                --error-container: #93000a;
+                --on-error-container: #ffdad6;
+            }
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            min-height: 60vh;
-            text-align: center;
+            gap: 24px;
+            background: var(--surface);
+            color: var(--on-surface);
+            font-family: Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
         }
 
-        .error-icon {
-            margin-bottom: 2rem;
-            animation: fadeIn 0.8s ease-in-out;
+        .icon {
+            width: 96px;
+            height: 96px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--error-container);
         }
 
-        .error-icon svg {
-            width: 90px;
-            height: 90px;
-            fill: #f56565;
+        .icon svg {
+            width: 48px;
+            height: 48px;
+            fill: var(--on-error-container);
         }
 
-        .error-content {
-            max-width: 700px;
-            animation: slideUp 0.8s ease-out 0.2s both;
-        }
-
-        .error-title {
-            font-size: 1.8rem;
-            font-weight: 600;
-            color: #7a8fb0;
-            margin-bottom: 1rem;
-            line-height: 1.2;
-        }
-
-        .error-message {
-            font-size: 1rem;
-            color: #b6c1d3;
-            margin-bottom: 2rem;
-            line-height: 1.6;
-            text-align: left;
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: scale(0.8);
-            }
-            to {
-                opacity: 1;
-                transform: scale(1);
-            }
-        }
-
-        @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+        h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            line-height: 2rem;
+            font-weight: 400;
         }
     </style>
 </head>
 <body>
-    <div class="error-container">
-        <div class="error-icon">
-            <svg viewBox="0 0 24 24">
-                <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
-            </svg>
-        </div>
-        <div class="error-content">
-            <h2 class="error-title" id="errorTitle"></h2>
-            <p class="error-message" id="errorMessage"></p>
-        </div>
+    <div class="icon">
+        <svg viewBox="0 0 24 24">
+            <path d="M11,15H13V17H11V15M11,7H13V13H11V7M12,2C6.47,2 2,6.5 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20Z"/>
+        </svg>
     </div>
+    <h1 id="errorTitle"></h1>
 
-	<script>
+    <script>
         const translations = {
             en: {
-                'Device Unavailable': 'Device Unavailable',
-				'Unauthorized Access': 'Unauthorized Access',
-                'Device offline message': 'The device is currently offline. Please check the device status and try again.',
-				'Unauthorized request message': 'You are not authorized to access this resource. Please check your session and try again.'
+                offline: 'Device offline',
+                unauthorized: 'Unauthorized'
             },
             'zh-CN': {
-                'Device Unavailable': '设备不可用',
-				'Unauthorized Access': '未授权访问',
-                'Device offline message': '设备当前离线，请检查设备状态后重试。',
-				'Unauthorized request message': '您无权访问此资源。请检查您的会话并重试。'
+                offline: '设备离线',
+                unauthorized: '未授权访问'
             }
         };
 
-        function t(key, lang) {
-            return translations[lang][key] || translations.en[key] || key;
-        }
+        const errorType = '{{.}}';
+        const lang = navigator.language.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
+        const title = translations[lang][errorType] || translations.en[errorType] || 'Error';
 
-        function updateContent() {
-            const errorType = '{{.}}';
-            const lang = navigator.language === 'zh-CN' ? 'zh-CN' : 'en';
-
-            let title = '', message = '';
-
-            switch (errorType) {
-			case 'offline':
-				title = t('Device Unavailable', lang);
-				message = t('Device offline message', lang);
-				break;
-			case 'unauthorized':
-				title = t('Unauthorized Access', lang);
-				message = t('Unauthorized request message', lang);
-				break;
-            }
-
-            document.getElementById('errorTitle').textContent = title;
-            document.getElementById('errorMessage').textContent = message;
-
-            // Update page title
-            if (title) {
-                document.title = title + ' - RTTY';
-            } else {
-                document.title = 'Error - RTTY';
-            }
-        }
-
-        // Initialize page on load
-        document.addEventListener('DOMContentLoaded', updateContent);
+        document.documentElement.lang = lang;
+        document.getElementById('errorTitle').textContent = title;
+        document.title = title + ' - RTTY';
     </script>
 </body>
 </html>

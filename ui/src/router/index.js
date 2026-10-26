@@ -7,7 +7,9 @@ import { createWebHistory, createRouter } from 'vue-router'
 import axios from 'axios'
 
 import Login from '../views/Login.vue'
-import Home from '../views/Home.vue'
+import AppShell from '../layouts/AppShell.vue'
+import Devices from '../views/Devices.vue'
+import Shares from '../views/Shares.vue'
 import Rtty from '../views/Rtty.vue'
 import Error from '../views/Error.vue'
 
@@ -19,8 +21,21 @@ const routes = [
   },
   {
     path: '/',
-    name: 'Home',
-    component: Home
+    component: AppShell,
+    children: [
+      {
+        path: '',
+        name: 'Devices',
+        component: Devices,
+        meta: { title: 'Devices', icon: 'devices' }
+      },
+      {
+        path: 'shares',
+        name: 'Shares',
+        component: Shares,
+        meta: { title: 'Shares', icon: 'shares' }
+      }
+    ]
   },
   {
     path: '/rtty/:devid',

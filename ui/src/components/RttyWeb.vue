@@ -1,135 +1,74 @@
 <template>
-  <el-dialog v-model="model" :title="$t('Access your devices\'s Web')" width="300">
-    <el-form ref="form" :label-width="80" label-position="left" :model="formData" :rules="ruleValidate">
-      <el-form-item :label="$t('Proto')" prop="proto">
-        <el-radio-group v-model="formData.proto">
-          <el-radio value="http" size="large">HTTP</el-radio>
-          <el-radio value="https" size="large">HTTPS</el-radio>
-        </el-radio-group>
-      </el-form-item>
-      <el-form-item :label="$t('ipaddr')" prop="ipaddr">
-        <el-input v-model="formData.ipaddr" placeholder="127.0.0.1"/>
-      </el-form-item>
-      <el-form-item :label="$t('port')" prop="port">
-        <el-input v-model.number="formData.port" :placeholder="formData.proto === 'https' ? '443' : '80'"/>
-      </el-form-item>
-      <el-form-item :label="$t('path')" prop="path">
-        <el-input v-model="formData.path" placeholder="/"/>
-      </el-form-item>
-    </el-form>
-    <template #footer>
-      <div class="dialog-footer">
-        <el-button @click="model = false">{{ $t('Cancel') }}</el-button>
-        <el-button type="primary" @click="open">{{ $t('OK') }}</el-button>
-      </div>
-    </template>
-  </el-dialog>
+  <v-dialog v-model="visible" max-width="400">
+    <v-card :title="$t('Device web')" :subtitle="dev?.id">
+      <v-card-text>
+        <v-form ref="form" @submit.prevent="submit">
+          <v-btn-toggle v-model="data.proto" mandatory class="mb-6 w-100">
+            <v-btn value="http" class="flex-grow-1">HTTP</v-btn>
+            <v-btn value="https" class="flex-grow-1" :disabled="dev?.proto < 4">HTTPS</v-btn>
+          </v-btn-toggle>
+          <v-text-field v-model.trim="data.ipaddr" :label="$t('ipaddr')" placeholder="127.0.0.1" persistent-placeholder :rules="[ipRule]" class="mono-input"/>
+          <v-text-field v-model.number="data.port" :label="$t('port')" :placeholder="data.proto === 'https' ? '443' : '80'" persistent-placeholder :rules="[portRule]" class="mono-input"/>
+          <v-text-field v-model.trim="data.path" :label="$t('path')" placeholder="/" persistent-placeholder :rules="[pathRule]" class="mono-input"/>
+          <button type="submit" hidden/>
+        </v-form>
+      </v-card-text>
+      <template #actions>
+        <v-spacer/>
+        <v-btn variant="text" @click="visible = false">{{ $t('Cancel') }}</v-btn>
+        <v-btn variant="flat" color="primary" @click="submit">{{ $t('Open') }}</v-btn>
+      </template>
+    </v-card>
+  </v-dialog>
 </template>
 
 <script setup>
-import { reactive, useTemplateRef } from 'vue'
+import { ref, reactive, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { ElMessage } from 'element-plus'
-
-const props = defineProps({
-  dev: Object
-})
+import { isIPv4 } from '../composables/format'
 
 const { t } = useI18n()
 
 const form = useTemplateRef('form')
-const model = defineModel()
+const visible = ref(false)
+const dev = ref(null)
 
-const formData = reactive({
+const data = reactive({
   proto: 'http',
   ipaddr: '',
-  port: null,
+  port: '',
   path: ''
 })
 
-const isValidIP = (addr) => {
-  const ipv4Pattern = '(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)'
-  return new RegExp(ipv4Pattern).test(addr)
+const ipRule = v => !v || isIPv4(v) || t('Invalid IP address')
+const portRule = v => !v || (Number.isInteger(v) && v >= 1 && v <= 65535) || t('Invalid port')
+const pathRule = v => !v || v.startsWith('/') || t('Must start with /')
+
+const open = (device) => {
+  dev.value = device
+  if (device.proto < 4)
+    data.proto = 'http'
+  visible.value = true
 }
 
-const ruleValidate = {
-  ipaddr: [{validator: (rule, value, callback) => {
-    if (!value) {
-      callback()
-      return
-    }
+const submit = async() => {
+  const { valid } = await form.value.validate()
+  if (!valid) return
 
-    if (!isValidIP(value)) {
-      callback(new Error(t('Invalid IP address')))
-    }
+  visible.value = false
 
-    callback()
-  }}],
-  port: [{validator: (rule, value, callback) => {
-    if (!value) {
-      callback()
-      return
-    }
+  const proto = data.proto
+  const ipaddr = data.ipaddr || '127.0.0.1'
+  const port = data.port || (proto === 'https' ? 443 : 80)
+  const path = data.path || '/'
+  const addr = encodeURIComponent(`${ipaddr}:${port}${path}`)
+  const { group, id } = dev.value
 
-    if (!Number.isInteger(value) || value < 1 || value > 65536) {
-      callback(new Error(t('Invalid port')))
-    }
-
-    callback()
-  }}],
-  path: [{validator: (rule, value, callback) => {
-    if (!value) {
-      callback()
-      return
-    }
-
-    if (!value.startsWith('/')) {
-      callback(new Error(t('Must start with /')))
-    }
-
-    callback()
-  }}]
+  if (group)
+    window.open(`/api/web2/${group}/${id}/${proto}/${addr}`)
+  else
+    window.open(`/api/web/${id}/${proto}/${addr}`)
 }
 
-const open = () => {
-  form.value.validate(valid => {
-    if (!valid)
-      return
-
-    const dev = props.dev
-
-    if (dev.proto < 4 && formData.proto === 'https') {
-      ElMessage.error(t('Your device\'s rtty does not support https proxy, please upgrade it.'))
-      return
-    }
-
-    model.value = false
-
-    setTimeout(() => {
-      const proto = formData.proto
-      let ipaddr = formData.ipaddr
-      let port = formData.port
-      let path = formData.path
-
-      if (!ipaddr)
-        ipaddr = '127.0.0.1'
-
-      if (!port)
-        port = proto === 'https' ? 443 : 80
-
-      if (!path)
-        path = '/'
-
-      const addr = encodeURIComponent(`${ipaddr}:${port}${path}`)
-
-      const group = dev.group
-      const devid = dev.id
-
-      if (group)
-        window.open(`/api/web2/${group}/${devid}/${proto}/${addr}`)
-      else
-        window.open(`/api/web/${devid}/${proto}/${addr}`)
-    }, 100)
-  })
-}
+defineExpose({ open })
 </script>

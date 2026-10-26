@@ -3,18 +3,17 @@ export default class {
     this.terminal = null
     this.overlayNode = document.createElement('div')
     this.overlayNode.style.cssText = `
-      border-radius: 15px;
-      font-size: xx-large;
-      opacity: 0.75;
-      padding: 0.2em 0.5em 0.2em 0.5em;
+      border-radius: 8px;
+      font: 500 1.375rem/1.75rem Roboto, sans-serif;
+      padding: 8px 16px;
       position: absolute;
-      -webkit-user-select: none;
-      -webkit-transition: opacity 180ms ease-in;
-      -moz-user-select: none;
-      -moz-transition: opacity 180ms ease-in;`
-    this.overlayNode.style.color = '#101010'
-    this.overlayNode.style.backgroundColor = '#f0f0f0'
-    this.overlayNode.style.opacity = '0.75'
+      z-index: 10;
+      pointer-events: none;
+      user-select: none;
+      transition: opacity 180ms ease-in;`
+    this.overlayNode.style.color = 'rgb(var(--v-theme-on-inverse-surface))'
+    this.overlayNode.style.backgroundColor = 'rgb(var(--v-theme-inverse-surface))'
+    this.overlayNode.style.opacity = '0.9'
   }
 
   activate(terminal) {
@@ -32,7 +31,7 @@ export default class {
     if (!terminal || !terminal.element)
       return
 
-    overlayNode.style.opacity = '0.75'
+    overlayNode.style.opacity = '0.9'
     overlayNode.textContent = msg
 
     if (!overlayNode.parentNode)
@@ -54,7 +53,7 @@ export default class {
         if (overlayNode.parentNode)
           overlayNode.parentNode.removeChild(overlayNode)
 
-        overlayNode.style.opacity = '0.75'
+        overlayNode.style.opacity = '0.9'
         this.timeout = undefined
       }, 200)
     }, timeout || 1500)

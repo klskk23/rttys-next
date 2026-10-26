@@ -1,0 +1,127 @@
+/* Material 3 overrides on top of Vuetify (unlayered, so they win over @layer vuetify) */
+
+:root {
+  --md-motion-emphasized: cubic-bezier(0.2, 0, 0, 1);
+  --md-motion-emphasized-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --md-motion-emphasized-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
+  --md-font-mono: ui-monospace, 'SFMono-Regular', 'JetBrains Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+}
+
+html {
+  overflow-y: auto;
+}
+
+body {
+  margin: 0;
+  background: rgb(var(--v-theme-surface));
+}
+
+.v-application {
+  font-family: Roboto, 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+}
+
+.font-mono {
+  font-family: var(--md-font-mono) !important;
+}
+
+/* Plain tooltip: inverse surface, extra-small corner */
+.v-tooltip > .v-overlay__content {
+  background: rgb(var(--v-theme-inverse-surface));
+  color: rgb(var(--v-theme-on-inverse-surface));
+  border-radius: 4px;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  padding: 4px 8px;
+}
+
+/* Dialog: extra-large corner */
+.v-dialog > .v-overlay__content > .v-card {
+  border-radius: 28px !important;
+}
+
+/* Room for the floating label of the first field in a scrollable dialog */
+.v-dialog .v-card-text {
+  padding-top: 12px !important;
+}
+
+.v-dialog .v-card-title {
+  font-size: 1.5rem;
+  line-height: 2rem;
+  font-weight: 400;
+  white-space: normal;
+}
+
+/* Data tables sit on the container surface */
+.v-data-table {
+  background: transparent !important;
+}
+
+.v-data-table .v-data-table__th {
+  color: rgb(var(--v-theme-on-surface-variant));
+  font-weight: 500 !important;
+}
+
+.v-data-table .v-table__wrapper > table > tbody > tr > td,
+.v-data-table .v-table__wrapper > table > thead > tr > th {
+  border-color: rgb(var(--v-theme-outline-variant)) !important;
+}
+
+/* Search bar */
+.md-search .v-field {
+  border-radius: 28px;
+  background: rgb(var(--v-theme-surface-container-high));
+}
+
+/* Page scaffold shared by list pages */
+.md-page {
+  padding: 8px 24px 24px;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.md-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.md-toolbar-search {
+  flex: 0 1 360px;
+  min-width: 200px;
+}
+
+.md-table-surface {
+  overflow: hidden;
+}
+
+@media (max-width: 959px) {
+  .md-page {
+    padding: 8px 16px 16px;
+  }
+
+  .md-toolbar-search {
+    flex: 1 1 100%;
+  }
+}
+
+/* Monospace values without changing field labels */
+.mono-input input,
+.mono-input .v-select__selection-text {
+  font-family: var(--md-font-mono);
+}
+
+/* Segmented button: selected segment uses secondary container */
+.v-btn-toggle.v-btn-group--divided .v-btn {
+  border-color: rgb(var(--v-theme-outline)) !important;
+}
+
+.v-btn-toggle > .v-btn.v-btn--active {
+  background: rgb(var(--v-theme-secondary-container));
+  color: rgb(var(--v-theme-on-secondary-container));
+}
+
+.v-btn-toggle > .v-btn.v-btn--active > .v-btn__overlay {
+  opacity: 0;
+}

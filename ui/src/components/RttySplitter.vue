@@ -158,13 +158,13 @@ const handleResize = () => emit('resize')
 
 .splitter-bar {
   position: absolute;
-  background-color: #dcdfe6;
+  background-color: rgb(var(--v-theme-outline-variant));
   z-index: 10;
-  transition: background-color 0.2s;
+  transition: background-color 200ms var(--md-motion-emphasized);
 }
 
 .splitter-bar:hover {
-  background-color: #409eff;
+  background-color: rgb(var(--v-theme-primary));
 }
 
 .splitter-bar.horizontal {

@@ -1,51 +1,36 @@
 <template>
-  <el-form-item :label="t('Serial port')">
-    <el-space>
-      <el-select v-model="settings.port" filterable :loading="loading" :placeholder="t('Select serial port')">
-        <el-option v-for="port in ports" :key="port" :label="port" :value="port"/>
-      </el-select>
-      <el-button :icon="Refresh" :loading="loading" :title="t('Refresh List')" @click="loadPorts"/>
-    </el-space>
-  </el-form-item>
-  <el-alert v-if="error" :title="error" type="error" :closable="false" class="list-error"/>
-  <el-form-item :label="t('Baud rate')">
-    <el-select v-model="settings.baudRate" filterable default-first-option>
-      <el-option v-for="rate in baudRates" :key="rate" :label="rate" :value="rate"/>
-    </el-select>
-  </el-form-item>
-  <el-form-item :label="t('Data bits')">
-    <el-select v-model="settings.dataBits">
-      <el-option v-for="bits in [5, 6, 7, 8]" :key="bits" :label="bits" :value="bits"/>
-    </el-select>
-  </el-form-item>
-  <el-form-item :label="t('Stop bits')">
-    <el-select v-model="settings.stopBits">
-      <el-option v-for="bits in [1, 2]" :key="bits" :label="bits" :value="bits"/>
-    </el-select>
-  </el-form-item>
-  <el-form-item :label="t('Parity')">
-    <el-select v-model="settings.parity">
-      <el-option :label="t('None')" value="none"/>
-      <el-option :label="t('Odd')" value="odd"/>
-      <el-option :label="t('Even')" value="even"/>
-    </el-select>
-  </el-form-item>
+  <v-select v-model="settings.port" :items="ports" :label="t('Serial port')" :loading="loading" class="mono-input"
+    :error-messages="error" :no-data-text="t('No serial ports found')" :prepend-inner-icon="icons.serial">
+    <template #append>
+      <v-btn :icon="icons.refresh" variant="text" :loading="loading" :aria-label="t('Refresh')" @click="loadPorts"/>
+    </template>
+  </v-select>
+  <v-select v-model="settings.baudRate" :items="baudRates" :label="t('Baud rate')" class="mono-input"/>
+  <div class="serial-grid">
+    <v-select v-model="settings.dataBits" :items="[5, 6, 7, 8]" :label="t('Data bits')"/>
+    <v-select v-model="settings.stopBits" :items="[1, 2]" :label="t('Stop bits')"/>
+    <v-select v-model="settings.parity" :items="parities" :label="t('Parity')"/>
+  </div>
 </template>
 
 <script setup>
 import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Refresh } from '@element-plus/icons-vue'
 import axios from 'axios'
+import * as icons from '../icons'
 
-const props = defineProps({ dev: Object, group: String, active: Boolean })
+const props = defineProps({ dev: Object, active: Boolean })
 const { t } = useI18n()
 const ports = ref([])
 const loading = ref(false)
 const error = ref('')
-const baudError = ref('')
-const baudRates = ['9600', '19200', '38400', '57600', '115200', '230400', '460800', '921600']
-const settings = reactive({ port: '', baudRate: '115200', dataBits: 8, stopBits: 1, parity: 'none' })
+const baudRates = [9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600]
+const parities = computed(() => [
+  { title: t('None'), value: 'none' },
+  { title: t('Odd'), value: 'odd' },
+  { title: t('Even'), value: 'even' }
+])
+const settings = reactive({ port: '', baudRate: 115200, dataBits: 8, stopBits: 1, parity: 'none' })
 const ready = computed(() => props.active && !!props.dev && !loading.value && !error.value && !!settings.port)
 let latestRequest = 0
 
@@ -53,7 +38,6 @@ const loadPorts = () => {
   const request = ++latestRequest
   settings.port = ''
   error.value = ''
-  baudError.value = ''
   ports.value = []
   loading.value = false
 
@@ -61,10 +45,12 @@ const loadPorts = () => {
 
   loading.value = true
   axios.get(`/api/serial-ports/${encodeURIComponent(props.dev.id)}`, {
-    params: { group: props.group || '' }
+    params: { group: props.dev.group || '' }
   }).then(res => {
     if (request !== latestRequest) return
     ports.value = res.data.ports
+    if (ports.value.length === 1)
+      settings.port = ports.value[0]
   }).catch(() => {
     if (request !== latestRequest) return
     error.value = t('Unable to list serial ports')
@@ -74,16 +60,16 @@ const loadPorts = () => {
   })
 }
 
-const getSettings = () => {
-  const currentSettings = { ...settings }
-  currentSettings.baudRate = parseInt(currentSettings.baudRate, 10)
-  return currentSettings
-}
+const getSettings = () => ({ ...settings })
 
-watch(() => [props.active, props.dev?.id, props.group], loadPorts, { immediate: true })
+watch(() => [props.active, props.dev?.id, props.dev?.group], loadPorts, { immediate: true })
 defineExpose({ ready, getSettings })
 </script>
 
 <style scoped>
-.list-error { margin-top: 8px; }
+.serial-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0 12px;
+}
 </style>

@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import vuetify from 'vite-plugin-vuetify'
 import eslint from '@nabla/vite-plugin-eslint'
 import vueI18n from '@intlify/unplugin-vue-i18n/vite'
 import compression from 'vite-plugin-compression2'
@@ -8,10 +9,12 @@ import compression from 'vite-plugin-compression2'
 export default defineConfig({
   build: {
     emptyOutDir: true,
-    outDir: '../internal/server/assets/dist/'
+    outDir: '../internal/server/assets/dist/',
+    chunkSizeWarningLimit: 1500
   },
   plugins: [
     vue(),
+    vuetify({ autoImport: true }),
     eslint(),
     compression({
       algorithms: ['gzip'],
